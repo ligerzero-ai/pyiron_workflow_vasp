@@ -8,6 +8,8 @@ from typing import Optional
 import tarfile
 import fnmatch
 import shutil
+import subprocess
+from pyiron_snippets.logger import logger
 
 from pyiron_workflow import Workflow
 
@@ -72,44 +74,74 @@ class FileObject:
     def name(self):
         return self._path.name
     
-@Workflow.wrap.as_function_node("output")#, "dump", "log")
-def Shell(
-        working_directory: str,
-        command: str = "lmp",
-        environment: Optional[dict] = None,
-        arguments: Optional[list] = None,
-):
-    arguments = ["-in", "control.inp"] if arguments is None else arguments
-    # -> (ShellOutput, FileObject, FileObject):  TODO: fails -> why
-    import os
-    import subprocess
-
+@Workflow.wrap.as_function_node("output")
+def shell(
+    command: str,
+    workdir: str | None = None,
+    environment: Optional[dict[str, str]] = None,
+    arguments: Optional[list[str]] = None,
+) -> ShellOutput:
+    """
+    Run a shell command in the specified working directory.
+    
+    Args:
+        command (str): The command to execute.
+        workdir (str | None, optional): The working directory. Defaults to None.
+        environment (Optional[dict[str, str]], optional): Environment variables to set. Defaults to None.
+        arguments (Optional[list[str]], optional): Command line arguments. Defaults to None.
+    
+    Returns:
+        ShellOutput: Object containing stdout, stderr, and return code.
+    """
     if environment is None:
         environment = {}
     if arguments is None:
         arguments = []
-
+    logger.info(f"run_job is in {os.getcwd()}")
     environ = dict(os.environ)
     environ.update({k: str(v) for k, v in environment.items()})
-    # print ([str(command), *map(str, arguments)], working_directory, environment)
-    # print("start shell")
     proc = subprocess.run(
         [command, *map(str, arguments)],
         capture_output=True,
-        cwd=working_directory,
+        cwd=workdir,
         encoding="utf8",
         env=environ,
+        shell=True,
     )
-    # print("end shell")
-
     output = ShellOutput()
     output.stdout = proc.stdout
     output.stderr = proc.stderr
     output.return_code = proc.returncode
-    # dump = FileObject("dump.out", working_directory)
-    # log = FileObject("log.lammps", working_directory)
+    return output
 
-    return output#, dump, log
+@Workflow.wrap.as_function_node("line_found")
+def isLineInFile(filepath: str, line: str, exact_match: bool = True) -> bool:
+    """
+    Check if a specific line exists in a file.
+    
+    Args:
+        filepath (str): Path to the file to search in.
+        line (str): The line to search for.
+        exact_match (bool, optional): If True, the line must match exactly. If False, 
+                                     the line can be a substring of any line in the file. 
+                                     Defaults to True.
+    
+    Returns:
+        bool: True if the line is found, False otherwise.
+    """
+    line_found = False  # Initialize the result as False
+    try:
+        with open(filepath, "r") as file:
+            for file_line in file:
+                if exact_match and line == file_line.strip():
+                    line_found = True
+                    break  # Exit loop if the line is found
+                elif not exact_match and line in file_line:
+                    line_found = True
+                    break  # Exit loop if a partial match is found
+    except FileNotFoundError:
+        logger.info(f"File '{filepath}' not found.")
+    return line_found
 
 @Workflow.wrap.as_function_node("workdir")
 def delete_files_recursively(workdir: str, files_to_be_deleted: list[str]):

@@ -4,7 +4,6 @@ import os
 import warnings
 from pathlib import Path
 import shutil
-import subprocess
 from typing import Optional
 from dataclasses import dataclass, field
 
@@ -19,7 +18,7 @@ from ase import Atoms
 from pyiron_workflow import Workflow
 import pyiron_workflow as pwf
 
-from pyiron_workflow_vasp.generic import delete_files_recursively, compress_directory, remove_dir, ShellOutput
+from pyiron_workflow_vasp.generic import delete_files_recursively, compress_directory, remove_dir, shell, isLineInFile
 
 from pyiron_snippets.logger import logger
 
@@ -159,36 +158,6 @@ class VaspInput:
     kpoints: Optional[Kpoints] = None
 
 
-@Workflow.wrap.as_function_node("line_found")
-def isLineInFile(filepath: str, line: str, exact_match: bool = True) -> bool:
-    """
-    Check if a specific line exists in a file.
-    
-    Args:
-        filepath (str): Path to the file to search in.
-        line (str): The line to search for.
-        exact_match (bool, optional): If True, the line must match exactly. If False, 
-                                     the line can be a substring of any line in the file. 
-                                     Defaults to True.
-    
-    Returns:
-        bool: True if the line is found, False otherwise.
-    """
-    line_found = False  # Initialize the result as False
-    try:
-        with open(filepath, "r") as file:
-            for file_line in file:
-                if exact_match and line == file_line.strip():
-                    line_found = True
-                    break  # Exit loop if the line is found
-                elif not exact_match and line in file_line:
-                    line_found = True
-                    break  # Exit loop if a partial match is found
-    except FileNotFoundError:
-        logger.info(f"File '{filepath}' not found.")
-    return line_found
-
-
 def write_POSCAR(workdir: str, structure: Structure, filename: str = "POSCAR") -> str:
     poscar_path = os.path.join(workdir, filename)
     structure.to(fmt="poscar", filename=poscar_path)
@@ -278,47 +247,6 @@ def write_VaspInputSet(workdir: str, vasp_input: VaspInput) -> str:
         _ = write_KPOINTS(workdir=workdir, kpoints=vasp_input.kpoints)
 
     return workdir
-
-
-@Workflow.wrap.as_function_node("output")
-def run_job(
-    command: str,
-    workdir: str | None = None,
-    environment: Optional[dict[str, str]] = None,
-    arguments: Optional[list[str]] = None,
-) -> ShellOutput:
-    """
-    Run a shell command in the specified working directory.
-    
-    Args:
-        command (str): The command to execute.
-        workdir (str | None, optional): The working directory. Defaults to None.
-        environment (Optional[dict[str, str]], optional): Environment variables to set. Defaults to None.
-        arguments (Optional[list[str]], optional): Command line arguments. Defaults to None.
-    
-    Returns:
-        ShellOutput: Object containing stdout, stderr, and return code.
-    """
-    if environment is None:
-        environment = {}
-    if arguments is None:
-        arguments = []
-    logger.info(f"run_job is in {os.getcwd()}")
-    environ = dict(os.environ)
-    environ.update({k: str(v) for k, v in environment.items()})
-    proc = subprocess.run(
-        [command, *map(str, arguments)],
-        capture_output=True,
-        cwd=workdir,
-        encoding="utf8",
-        env=environ,
-        shell=True,
-    )
-    output = ShellOutput()
-    output.stdout = proc.stdout
-    output.stderr = proc.stderr
-    output.return_code = proc.returncode
-    return output
 
 
 @Workflow.wrap.as_function_node("output_dict")
@@ -417,7 +345,7 @@ def vasp_job(
     """
     self.working_dir = create_WorkingDirectory(workdir=workdir)
     self.vaspwriter = write_VaspInputSet(workdir=workdir, vasp_input=vasp_input)
-    self.job = run_job(command=command, workdir=workdir)
+    self.job = shell(command=command, workdir=workdir)
     self.vasp_output = vasp_parser_node(workdir=workdir)
     self.convergence_status = check_convergence(workdir=workdir)
     self.cleanup = delete_files_recursively(workdir=workdir, files_to_be_deleted=files_to_be_deleted)
