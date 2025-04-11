@@ -58,6 +58,7 @@ def check_convergence(
         directory (str): The directory containing the VASP files.
         filename_vasprun (str, optional): The name of the vasprun.xml file (default: "vasprun.xml").
         filename_vasplog (str, optional): The name of the vasp.log file (default: "vasp.log").
+        backup_vasplog (str, optional): The name of the backup log file (default: "error.out").
 
     Returns:
         bool: True if the calculation has converged, False otherwise.
@@ -123,6 +124,18 @@ def process_error_archives(directory):
 def _get_vasp_outputs_from_files(
     structure, outcar_path="OUTCAR", incar_path="INCAR", kpoints_path="KPOINTS"
 ):
+    """
+    Extract VASP output data from individual files.
+    
+    Args:
+        structure (Structure): The structure object.
+        outcar_path (str, optional): Path to the OUTCAR file. Defaults to "OUTCAR".
+        incar_path (str, optional): Path to the INCAR file. Defaults to "INCAR".
+        kpoints_path (str, optional): Path to the KPOINTS file. Defaults to "KPOINTS".
+        
+    Returns:
+        pd.DataFrame: DataFrame containing the VASP output data from the files.
+    """
     file_data = {
         "POSCAR": [structure],
         "OUTCAR": [np.nan],
@@ -156,6 +169,17 @@ def _get_vasp_outputs_from_files(
 
 
 def _get_vasp_outputs(directory, structure=None, parse_all_in_dir=True):
+    """
+    Extract VASP output data from a directory.
+    
+    Args:
+        directory (str): The directory containing VASP output files.
+        structure (Structure, optional): The structure object. If None, it will be read from the directory.
+        parse_all_in_dir (bool, optional): Whether to parse all OUTCAR files in the directory. Defaults to True.
+        
+    Returns:
+        pd.DataFrame: DataFrame containing the VASP output data.
+    """
     outcar_files = (
         glob.glob(os.path.join(directory, "OUTCAR*"))
         if parse_all_in_dir
@@ -194,11 +218,31 @@ def _get_vasp_outputs(directory, structure=None, parse_all_in_dir=True):
 
 
 def get_SCF_cycle_convergence(outcar_scf_arrays, threshold=1e-5):
+    """
+    Check if the SCF cycle has converged.
+    
+    Args:
+        outcar_scf_arrays (list): List of SCF energy arrays.
+        threshold (float, optional): The convergence threshold. Defaults to 1e-5.
+        
+    Returns:
+        bool: True if the SCF cycle has converged, False otherwise.
+    """
     diff = outcar_scf_arrays[-1] - outcar_scf_arrays[-2]
     return abs(diff) < threshold
 
 
 def _get_KPOINTS_info(KPOINTS, INCAR):
+    """
+    Extract KPOINTS information from KPOINTS and INCAR files.
+    
+    Args:
+        KPOINTS (dict): The KPOINTS dictionary.
+        INCAR (dict): The INCAR dictionary.
+        
+    Returns:
+        str or np.nan: The KPOINTS information or np.nan if not available.
+    """
     try:
         if np.isnan(KPOINTS):
             kpoints_key = "KSPACING"
@@ -211,6 +255,16 @@ def _get_KPOINTS_info(KPOINTS, INCAR):
 
 
 def process_outcar(outcar, structure):
+    """
+    Process OUTCAR data and extract relevant information.
+    
+    Args:
+        outcar (Outcar): The OUTCAR object.
+        structure (Structure): The structure object.
+        
+    Returns:
+        pd.DataFrame: DataFrame containing the processed OUTCAR data.
+    """
     if pd.isna(outcar) or pd.isna(structure):
         warning_message = (
             "Both OUTCAR and structure data are missing. Returning DataFrame with np.nan values."
@@ -346,6 +400,17 @@ def get_structure(directory):
 
 
 def get_vasp_outputs(directory, extract_error_dirs=True, parse_all_in_dir=True):
+    """
+    Get VASP outputs from a directory.
+    
+    Args:
+        directory (str): The directory containing VASP output files.
+        extract_error_dirs (bool, optional): Whether to extract error directories. Defaults to True.
+        parse_all_in_dir (bool, optional): Whether to parse all files in the directory. Defaults to True.
+        
+    Returns:
+        pd.DataFrame: DataFrame containing the VASP outputs.
+    """
     df_direct_outputs = _get_vasp_outputs(directory, parse_all_in_dir=parse_all_in_dir)
     df_error_outputs = (
         process_error_archives(directory) if extract_error_dirs else pd.DataFrame()
@@ -356,6 +421,17 @@ def get_vasp_outputs(directory, extract_error_dirs=True, parse_all_in_dir=True):
 def grab_electron_info(
     directory_path, line_before_elec_str="PAW_PBE", potcar_filename="POTCAR"
 ):
+    """
+    Extract electron information from POTCAR file.
+    
+    Args:
+        directory_path (str): The directory containing the POTCAR file.
+        line_before_elec_str (str, optional): The string before the electron count. Defaults to "PAW_PBE".
+        potcar_filename (str, optional): The name of the POTCAR file. Defaults to "POTCAR".
+        
+    Returns:
+        tuple: (element_list, element_count, electron_of_potcar)
+    """
     structure = get_structure(directory_path)
     if structure:
         element_list, element_count = element_count_ordered(structure)
@@ -378,6 +454,17 @@ def grab_electron_info(
 def get_total_electron_count(
     directory_path, line_before_elec_str="PAW_PBE", potcar_filename="POTCAR"
 ):
+    """
+    Calculate the total electron count from POTCAR file.
+    
+    Args:
+        directory_path (str): The directory containing the POTCAR file.
+        line_before_elec_str (str, optional): The string before the electron count. Defaults to "PAW_PBE".
+        potcar_filename (str, optional): The name of the POTCAR file. Defaults to "POTCAR".
+        
+    Returns:
+        float: The total electron count.
+    """
     ele_list, ele_count, electron_of_potcar = grab_electron_info(
         directory_path, line_before_elec_str, potcar_filename
     )
@@ -385,6 +472,15 @@ def get_total_electron_count(
 
 
 def element_count_ordered(structure):
+    """
+    Count the number of each element in the structure in order.
+    
+    Args:
+        structure (Structure): The structure object.
+        
+    Returns:
+        tuple: (element_list, element_count)
+    """
     site_element_list = [site.species_string for site in structure]
     past_element = site_element_list[0]
     element_list = [past_element]
@@ -403,6 +499,17 @@ def element_count_ordered(structure):
 
 
 def parse_vasp_directory(directory, extract_error_dirs=True, parse_all_in_dir=True):
+    """
+    Parse a VASP directory and extract all relevant information.
+    
+    Args:
+        directory (str): The directory containing VASP output files.
+        extract_error_dirs (bool, optional): Whether to extract error directories. Defaults to True.
+        parse_all_in_dir (bool, optional): Whether to parse all files in the directory. Defaults to True.
+        
+    Returns:
+        pd.DataFrame: DataFrame containing all the parsed VASP data.
+    """
     df = get_vasp_outputs(
         directory,
         extract_error_dirs=extract_error_dirs,
