@@ -97,7 +97,7 @@ def shell(
         environment = {}
     if arguments is None:
         arguments = []
-    logger.info(f"run_job is in {os.getcwd()}")
+    logger.info(f"shell is in {os.getcwd()}")
     environ = dict(os.environ)
     environ.update({k: str(v) for k, v in environment.items()})
     proc = subprocess.run(
@@ -153,7 +153,7 @@ def delete_files_recursively(workdir: str, files_to_be_deleted: list[str]):
         files_to_be_deleted (list[str]): List of filenames to delete.
     """
     if not os.path.isdir(workdir):
-        print(f"Error: {workdir} is not a valid directory.")
+        logger.info(f"Error: {workdir} is not a valid directory.")
     else:
         for root, _, files in os.walk(workdir):
             for file in files:
@@ -161,9 +161,9 @@ def delete_files_recursively(workdir: str, files_to_be_deleted: list[str]):
                     file_path = os.path.join(root, file)
                     try:
                         os.remove(file_path)
-                        print(f"Deleted: {file_path}")
+                        logger.info(f"Deleted: {file_path}")
                     except Exception as e:
-                        print(f"Error deleting {file_path}: {e}")
+                        logger.info(f"Error deleting {file_path}: {e}")
     return workdir
 
 @Workflow.wrap.as_function_node("compressed_file")
@@ -235,12 +235,74 @@ def compress_directory(
                     # tar.add(file_path, arcname=os.path.relpath(file_path, directory_path))
                     # print(f"{file} added")
         if print_message:
-            print(f"Compressed directory: {directory_path}")
+            logger.info(f"compress_directory: compressed directory at {directory_path}")
     else:
         output_file = None
-        print("no compression")
+        logger.info(f"compress_directory: no compression")
     return output_file
+    
+def submit_to_slurm(
+    node,
+    /,
+    job_name=None,
+    output_file=None,
+    error_file=None,
+    time_limit="00:05:00",
+    partition="s.cmmg",
+    nodes=1,
+    ntasks=1,
+    cpus_per_task=1,
+    memory="1GB",
+):
+    """
+    An example of a helper function for running nodes on slurm.
 
+    - Saves the node
+    - Writes a slurm batch script that 
+        - Loads the node
+        - Runs it
+        - Saves it again
+    - Runs the batch script
+    """
+    if node.graph_root is not node:
+        raise ValueError(
+            f"Can only submit parent-most nodes, but {node.full_label} "
+            f"has root {node.graph_root.full_label}"
+        )
+        
+    node.save(backend="pickle")
+    p = node.as_path()
+    
+    if job_name is None:
+        job_name = node.full_label 
+        job_name = job_name.replace(node.lexical_delimiter, "_")
+        job_name = "pwf" + job_name
+        
+    script_content = f"""#!/bin/bash
+#SBATCH --job-name={job_name} 
+#SBATCH --output={p.joinpath("slurm.out").resolve() if output_file is None else output_file}
+#SBATCH --error={p.joinpath("slurm.err").resolve() if error_file is None else error_file}
+#SBATCH --time={time_limit}
+#SBATCH --partition={partition}
+#SBATCH --nodes={nodes}
+#SBATCH --ntasks={ntasks}
+#SBATCH --cpus-per-task={cpus_per_task}
+#SBATCH --mem={memory}
+
+# Execute Python script inline
+python - <<EOF
+from pyiron_workflow import PickleStorage
+node = PickleStorage().load(filename="{node.as_path().joinpath('picklestorage').resolve()}")  # Load
+node.run()  # Run
+node.save(backend="pickle")  # Save again
+EOF
+"""
+    submission_script = p.joinpath("node_submission.sh")
+    submission_script.write_text(script_content)
+    import subprocess
+    submission = subprocess.run(["sbatch", submission_script.resolve()])
+    return submission
+    
 @Workflow.wrap.as_function_node("compressed_file")
 def remove_dir(directory_path, actually_remove=False):
     if actually_remove:
