@@ -13,7 +13,7 @@ from pymatgen.core import Structure
 from pymatgen.io.vasp.inputs import Incar, Kpoints
 from pymatgen.io.vasp.outputs import Vasprun
 
-from pyiron_atomistics.vasp.output import parse_vasp_output as pyiron_atomistics_pvo
+from pyiron_vasp.vasp.output import parse_vasp_output as pyiron_atomistics_pvo
 
 from ase import Atoms
 
@@ -346,7 +346,10 @@ def vasp_job(
                                                 Defaults to False.
         remove_calc_dir (bool, optional): Whether to remove the calculation directory after compression. 
                                          Defaults to False.
-        vasp_parser_node (callable, optional): Function node to parse VASP output. Defaults to parse_VaspOutput.
+        vasp_parser_function (callable, optional): Function to parse VASP output. This should be a regular Python function
+                                                 that takes a workdir parameter and returns parsed output. If None, the
+                                                 default parse_VaspOutput function will be used.
+        vasp_parser_args (dict, optional): Additional arguments to pass to the vasp_parser_function. Defaults to {}.
     
     Returns:
         tuple: (vasp_output, convergence_status)
