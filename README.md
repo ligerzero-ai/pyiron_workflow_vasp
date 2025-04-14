@@ -1,5 +1,66 @@
+# pyiron_workflow_vasp
 
-# Instructions to Generate the .pyiron_vasp_config
+A VASP workflow integration package for pyiron, providing tools and utilities for running and managing VASP calculations within the pyiron workflow framework.
+
+## Installation
+
+The package can be installed using pip:
+
+```bash
+# Basic installation
+pip install pyiron_workflow_vasp
+
+# Installation with development tools
+pip install "pyiron_workflow_vasp[dev]"
+
+# Installation with notebook support
+pip install "pyiron_workflow_vasp[notebook]"
+
+# Installation with all optional dependencies
+pip install "pyiron_workflow_vasp[dev,notebook]"
+```
+
+## Dependencies
+
+The package requires the following core dependencies:
+- Python >= 3.8
+- numpy >= 1.20.0
+- pandas >= 1.3.0
+- pymatgen >= 2023.0.0
+- pyiron_workflow >= 0.1.0
+- ase >= 3.22.0
+
+## Project Information
+
+- **License**: BSD-3-Clause
+- **Development Status**: Alpha
+- **Documentation**: [GitHub Repository](https://github.com/pyiron/pyiron_workflow_vasp)
+- **Bug Tracker**: [GitHub Issues](https://github.com/pyiron/pyiron_workflow_vasp/issues)
+
+## Usage
+
+The package provides a set of tools for running VASP calculations within pyiron workflows. Here's a basic example:
+
+```python
+from pyiron_workflow_vasp import vasp
+
+# Create a VASP job
+job = vasp.vasp_job(
+    structure=your_structure,
+    incar_parameters={
+        "ENCUT": 400,
+        "ISMEAR": 0,
+        "SIGMA": 0.1
+    }
+)
+
+# Run the job
+job.run()
+```
+
+For more examples, check out the notebooks in the `example_notebooks` directory.
+
+## VASP Configuration
 
 The `.pyiron_vasp_config` file is essential for configuring the paths to the VASP pseudopotential files (POTCAR files) used in pyiron_workflow's VASP nodes. The file specifies the locations of different VASP potential sets and the default potential set to be used. Below are step-by-step instructions to generate the `.pyiron_vasp_config` file.
 
