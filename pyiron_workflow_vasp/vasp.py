@@ -490,7 +490,7 @@ def generate_modified_incar(incar, modifications):
     for key, value in modifications.items():
         modified_incar[key] = value
 
-    return modified_incar
+    return Incar.from_dict(modified_incar)
 
 @Workflow.wrap.as_function_node("VaspInput")
 def construct_sequential_VaspInput_from_vaspoutput_structure(vasp_output,
