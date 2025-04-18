@@ -159,7 +159,7 @@ class VaspInput:
     potcar_paths: Optional[list[str]] = None
     kpoints: Optional[Kpoints] = None
     # generic_input: GenericDFTInput
-    spin_constraints: []
+#    spin_constraints: []
 
 # def GenericDFTInput:
 #     spin_constraints=[]
