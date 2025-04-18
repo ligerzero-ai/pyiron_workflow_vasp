@@ -271,7 +271,7 @@ def parse_VaspOutput(workdir, function = None, parser_args = {}):
     """
     if function == None:
         #from pyiron_workflow_vasp.vasp_parser.output import parse_vasp_directory
-        from pyiron_atomistics.vasp.output import parse_vasp_output as parse_vasp_directory
+        from pyiron_vasp.vasp.output import parse_vasp_output as parse_vasp_directory
         parser_args = {"working_directory": workdir}
     else:
         parse_vasp_directory = function
