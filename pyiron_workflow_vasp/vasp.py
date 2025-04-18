@@ -430,6 +430,7 @@ def get_default_POTCAR_paths(
 def generate_VaspInput(structure,
                        incar,
                        potcar_paths):
+    print(type(structure))
     vaspinput = VaspInput(structure, incar, potcar_paths=potcar_paths)
     return vaspinput
     
