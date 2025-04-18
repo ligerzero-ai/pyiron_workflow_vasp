@@ -12,6 +12,7 @@ import pandas as pd
 from pymatgen.core import Structure
 from pymatgen.io.vasp.inputs import Incar, Kpoints
 from pymatgen.io.vasp.outputs import Vasprun
+from pymatgen.io.ase import AseAtomsAdaptor
 
 from pyiron_vasp.vasp.output import parse_vasp_output as pyiron_atomistics_pvo
 
@@ -157,7 +158,13 @@ class VaspInput:
     pseudopot_functional: str = "GGA"
     potcar_paths: Optional[list[str]] = None
     kpoints: Optional[Kpoints] = None
+    # generic_input: GenericDFTInput
+    spin_constraints: []
 
+# def GenericDFTInput:
+#     spin_constraints=[]
+#     kpoints=[]
+#     plane_wave_cutoff=[]
 
 def write_POSCAR(workdir: str, structure: Atoms, filename: str = "POSCAR") -> str:
     poscar_path = os.path.join(workdir, filename)
@@ -489,7 +496,7 @@ def construct_sequential_VaspInput_from_vaspoutput_structure(vasp_output,
                                             incar,
                                             potcar_paths):
     
-    vi = VaspInput(Structure.from_str(vasp_output.structures.iloc[0][-1], fmt="json"),
+    vi = VaspInput(AseAtomsAdaptor.get_atoms(Structure.from_str(vasp_output.structures.iloc[0][-1], fmt="json")),
                    incar,
                    potcar_paths=potcar_paths)
     return vi
