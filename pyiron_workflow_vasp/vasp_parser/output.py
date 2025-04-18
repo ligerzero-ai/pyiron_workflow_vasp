@@ -10,7 +10,7 @@ import pandas as pd
 from pymatgen.core import Structure
 from pymatgen.io.vasp import Incar, Kpoints, Vasprun
 
-from pyiron_nodes.atomistic.engine.vasp_parser.outcar import Outcar
+from pyiron_workflow_vasp.vasp_parser.outcar import Outcar
 
 def is_line_in_file(filepath, line, exact_match=True):
     """
