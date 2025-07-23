@@ -32,6 +32,7 @@ dependencies = [
     "pyiron_workflow>=0.1.0",
     "pyiron_vasp",
     "ase>=3.22.0",
+    "scipy>=1.16.0",
 ]
 
 [project.optional-dependencies]
