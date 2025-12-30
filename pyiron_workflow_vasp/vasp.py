@@ -66,6 +66,7 @@ def read_potcar_config(config_file: Path) -> dict:
         pyiron_vasp_resources = config_data.get("pyiron_vasp_resources", "")
         default_POTCAR_set = config_data.get("default_POTCAR_set")
         default_functional = config_data.get("default_functional")
+        default_pseudopotential_set = config_data.get("default_pseudopotential_set")
 
         # Dynamically identify all POTCAR sets based on keys in the config file
         potcar_sets = []
@@ -97,6 +98,12 @@ def read_potcar_config(config_file: Path) -> dict:
         config_data["default_POTCAR_path"] = config_data[
             f"vasp_POTCAR_path_{default_POTCAR_set}"
         ]
+        
+        # Set the pseudopotential CSV file suffix (defaults to functional if not specified)
+        if default_pseudopotential_set:
+            config_data["pseudopotential_csv_suffix"] = default_pseudopotential_set
+        else:
+            config_data["pseudopotential_csv_suffix"] = default_functional
 
         return config_data
 
@@ -116,9 +123,10 @@ default_POTCAR_generation_path = os.path.join(
     potcar_config["default_POTCAR_path"], potcar_config["default_functional"]
 )
 default_functional = potcar_config["default_functional"]
+pseudopotential_csv_suffix = potcar_config.get("pseudopotential_csv_suffix", default_functional)
 POTCAR_default_specification_data = str(
     Path(__file__).parent.joinpath(
-        "vasp_resources", f"vasp_pseudopotential_{default_functional}_data.csv"
+        "vasp_resources", f"vasp_pseudopotential_{pseudopotential_csv_suffix}_data.csv"
     )
 )
 
