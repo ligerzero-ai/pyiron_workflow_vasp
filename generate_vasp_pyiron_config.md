@@ -127,6 +127,23 @@ default_functional = GGA
 default_pseudopotential_set = GGA_MPRelaxSet
 ```
 
+**Important: CSV File Naming Convention**
+
+The CSV files **must** follow the exact naming convention:
+```
+vasp_pseudopotential_{suffix}_data.csv
+```
+
+Where `{suffix}` matches the value specified in `default_pseudopotential_set`. For example:
+- `default_pseudopotential_set = GGA` → looks for `vasp_pseudopotential_GGA_data.csv`
+- `default_pseudopotential_set = GGA_MPRelaxSet` → looks for `vasp_pseudopotential_GGA_MPRelaxSet_data.csv`
+- `default_pseudopotential_set = GGA_MatPES` → looks for `vasp_pseudopotential_GGA_MatPES_data.csv`
+
+The CSV files must be located in:
+```
+pyiron_workflow_vasp/pyiron_workflow_vasp/vasp_resources/
+```
+
 **Example Configuration:**
 
 ```ini
@@ -137,8 +154,8 @@ default_POTCAR_set = potpaw64
 default_functional = GGA
 
 # Set the default pseudopotential specification set
-# Options: GGA, LDA, GGA_MPRelaxSet, GGA_MatPES, or any custom set you create
-default_pseudopotential_set = GGA_MPRelaxSet
+# Options: GGA (VASP recommended defaults), LDA (VASP recommended defaults), GGA_MPRelaxSet (MaterialsProject Legacy - OMAT uses this), GGA_MatPES (MatPES 2025 dataset), or any custom set you create
+default_pseudopotential_set = GGA
 
 # Path to the root directory containing the VASP pseudopotential files
 pyiron_vasp_resources = /home/pyiron_resources_cmmc/vasp
@@ -161,11 +178,22 @@ The pseudopotential specification CSV files are located in:
 pyiron_workflow_vasp/pyiron_workflow_vasp/vasp_resources/
 ```
 
+**CSV File Naming Convention:**
+
+All CSV files **must** follow the exact naming pattern:
+```
+vasp_pseudopotential_{suffix}_data.csv
+```
+
+Where `{suffix}` corresponds to the value set in `default_pseudopotential_set` in your config file.
+
 Common files include:
-- `vasp_pseudopotential_GGA_data.csv`
-- `vasp_pseudopotential_LDA_data.csv`
-- `vasp_pseudopotential_GGA_MPRelaxSet_data.csv`
-- `vasp_pseudopotential_GGA_MatPES_data.csv`
+- `vasp_pseudopotential_GGA_data.csv` (for `default_pseudopotential_set = GGA`)
+- `vasp_pseudopotential_LDA_data.csv` (for `default_pseudopotential_set = LDA`)
+- `vasp_pseudopotential_GGA_MPRelaxSet_data.csv` (for `default_pseudopotential_set = GGA_MPRelaxSet`)
+- `vasp_pseudopotential_GGA_MatPES_data.csv` (for `default_pseudopotential_set = GGA_MatPES`)
+
+**Example:** If you set `default_pseudopotential_set = GGA_MPRelaxSet` in your config, the system will look for `vasp_pseudopotential_GGA_MPRelaxSet_data.csv` in the `vasp_resources/` directory.
 
 ### 6.2. CSV File Format
 
@@ -246,14 +274,21 @@ If you want to create an entirely new pseudopotential set (e.g., `GGA_Custom`):
       pyiron_workflow_vasp/pyiron_workflow_vasp/vasp_resources/vasp_pseudopotential_GGA_Custom_data.csv
    ```
 
-2. **Update the `default` column** for all entries according to your requirements.
+2. **Ensure the filename follows the naming convention:**
+   ```
+   vasp_pseudopotential_{your_suffix}_data.csv
+   ```
+   The `{your_suffix}` part must match exactly what you'll set in `default_pseudopotential_set` in your config file.
 
-3. **Add any new pseudopotential variants** following the steps in Section 6.3.
+3. **Update the `default` column** for all entries according to your requirements.
 
-4. **Configure your `.pyiron_vasp_config`** to use the new set:
+4. **Add any new pseudopotential variants** following the steps in Section 6.3.
+
+5. **Configure your `.pyiron_vasp_config`** to use the new set:
    ```ini
    default_pseudopotential_set = GGA_Custom
    ```
+   Note: The value after `default_pseudopotential_set =` must match the suffix in the CSV filename (the part between `vasp_pseudopotential_` and `_data.csv`).
 
 ### 6.6. Verifying Your Changes
 
@@ -316,8 +351,12 @@ with open(csv_path, 'r') as f:
   ```
 
 **Issue: CSV file not being read**
-- **Symptom:** System still uses old defaults despite CSV changes.
+- **Symptom:** System still uses old defaults despite CSV changes, or error about CSV file not found.
 - **Solution:** 
-  - Verify the CSV filename matches the pattern: `vasp_pseudopotential_{default_pseudopotential_set}_data.csv`
-  - Check that `default_pseudopotential_set` in your config matches the CSV filename suffix
+  - **Verify the CSV filename follows the exact naming convention:** `vasp_pseudopotential_{suffix}_data.csv`
+    - The `{suffix}` must match exactly what you set in `default_pseudopotential_set` in your config file
+    - Example: If config has `default_pseudopotential_set = GGA_MPRelaxSet`, the file must be named `vasp_pseudopotential_GGA_MPRelaxSet_data.csv`
+  - Check that `default_pseudopotential_set` in your config matches the CSV filename suffix (the part between `vasp_pseudopotential_` and `_data.csv`)
   - Ensure the CSV file is in the correct location: `pyiron_workflow_vasp/pyiron_workflow_vasp/vasp_resources/`
+  - Verify the file extension is `.csv` (case-sensitive)
+  - Check for typos in both the config value and the filename
