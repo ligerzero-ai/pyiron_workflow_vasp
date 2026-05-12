@@ -39,26 +39,40 @@ The package requires the following core dependencies:
 
 ## Usage
 
-The package provides a set of tools for running VASP calculations within pyiron workflows. Here's a basic example:
+The package provides a set of tools for running VASP calculations within pyiron workflows. A minimal end-to-end example:
 
 ```python
-from pyiron_workflow_vasp import vasp
+from ase.build import bulk
+from pymatgen.io.vasp.inputs import Incar
+from pyiron_workflow_vasp.vasp import VaspInput, vasp_job
 
-# Create a VASP job
-job = vasp.vasp_job(
-    structure=your_structure,
-    incar_parameters={
-        "ENCUT": 400,
-        "ISMEAR": 0,
-        "SIGMA": 0.1
-    }
-)
+structure = bulk("Fe", cubic=True, a=2.83)
+incar = Incar.from_dict({
+    "ENCUT": 400,
+    "ISMEAR": 1,
+    "SIGMA": 0.1,
+    "ISPIN": 2,
+    "MAGMOM": "2*3.0",
+})
 
-# Run the job
+# VaspInput bundles structure + INCAR (+ optional KPOINTS / explicit POTCARs).
+# Without an explicit potcar_paths kwarg, POTCAR generation uses the
+# pseudopotential library configured in ~/.pyiron_vasp_config.
+vasp_input = VaspInput(structure=structure, incar=incar)
+
+job = vasp_job(workdir="./bulk_fe_run", vasp_input=vasp_input)
 job.run()
+
+print("converged:", job.outputs.convergence_status.value)
+print("E_pot:    ", job.outputs.to_value_dict()["vasp_output"]["generic"]["energy_pot"])
 ```
 
-For more examples, check out the notebooks in the `example_notebooks` directory.
+For more examples — including an equation-of-state scan and a queued cluster
+run — see:
+
+- [`examples/run_bulk_fe.py`](examples/run_bulk_fe.py) — a runnable script with no hardcoded cluster paths.
+- [`example_notebooks/QuickStart.ipynb`](example_notebooks/QuickStart.ipynb) — the original walkthrough (uses MPIE cluster paths).
+- [`.pyiron_vasp_config.example`](.pyiron_vasp_config.example) — annotated template for the config file.
 
 ## VASP Configuration
 

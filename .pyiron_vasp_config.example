@@ -1,0 +1,41 @@
+# Example .pyiron_vasp_config — copy to ~/.pyiron_vasp_config and edit paths.
+#
+# The package reads this file lazily on first use, so editing it after import
+# requires resetting the cache: pyiron_workflow_vasp.vasp._get_potcar_config.cache_clear()
+#
+# You can override the search location with the PYIRON_VASP_CONFIG env var.
+
+# --- required ---
+
+# Which POTCAR set is treated as the default. Must match the suffix of one
+# of the `vasp_POTCAR_path_*` keys below.
+default_POTCAR_set = potpaw64
+
+# Which functional subdirectory ("GGA" or "LDA") to pull POTCARs from by default.
+default_functional = GGA
+
+# Root directory containing the various VASP pseudopotential trees.
+pyiron_vasp_resources = /path/to/your/vasp/potentials
+
+# --- POTCAR libraries ---
+#
+# Each `vasp_POTCAR_path_<suffix>` key declares a pseudopotential library.
+# The directory it points to MUST contain `GGA/` and `LDA/` subdirectories
+# (each in turn containing per-element folders with POTCAR files), e.g.:
+#
+#   $pyiron_vasp_resources/potpaw_64/GGA/Fe/POTCAR
+#   $pyiron_vasp_resources/potpaw_64/LDA/Fe/POTCAR
+#
+# You may declare custom suffixes (e.g. `mycustompots`) — the package picks
+# them up automatically.
+vasp_POTCAR_path_potpaw64 = {pyiron_vasp_resources}/potpaw_64
+vasp_POTCAR_path_potpaw54 = {pyiron_vasp_resources}/potpaw_54
+vasp_POTCAR_path_potpaw52 = {pyiron_vasp_resources}/potpaw_52
+
+# --- optional ---
+
+# Selects which default-POTCAR mapping CSV in
+# pyiron_workflow_vasp/vasp_resources/ to use, by suffix. Currently shipped:
+#   GGA, LDA, GGA_MPRelaxSet, GGA_MatPES
+# Defaults to `default_functional` (i.e. GGA or LDA) when omitted.
+# default_pseudopotential_set = GGA_MPRelaxSet
