@@ -83,38 +83,52 @@ def shell(
 ) -> ShellOutput:
     """
     Run a shell command in the specified working directory.
-    
+
     Args:
-        command (str): The command to execute.
+        command (str): The command to execute. Interpreted by the shell, so the
+            full string is preserved (this is what allows VASP-style invocations
+            like ``"module load vasp; mpiexec -n 1 vasp_std"``).
         workdir (str | None, optional): The working directory. Defaults to None.
-        environment (Optional[dict[str, str]], optional): Environment variables to set. Defaults to None.
-        arguments (Optional[list[str]], optional): Command line arguments. Defaults to None.
-    
+        environment (Optional[dict[str, str]], optional): Environment variables
+            to set in addition to the parent environment. Defaults to None.
+        arguments (Optional[list[str]], optional): Extra arguments appended to
+            ``command`` (whitespace-separated). Defaults to None.
+
     Returns:
         ShellOutput: Object containing stdout, stderr, and return code.
     """
-    curr_dir = os.getcwd()
-    os.chdir(workdir)
     if environment is None:
         environment = {}
     if arguments is None:
         arguments = []
-    logger.info(f"shell is in {os.getcwd()}")
     environ = dict(os.environ)
     environ.update({k: str(v) for k, v in environment.items()})
-    proc = subprocess.run(
-        [command, *map(str, arguments)],
-        capture_output=True,
-        cwd=workdir,
-        encoding="utf8",
-        env=environ,
-        shell=True,
-    )
+
+    # When ``shell=True``, the command must be a single string — passing a list
+    # silently drops every element past the first on POSIX. Compose the full
+    # command line here.
+    full_command = " ".join([command, *map(str, arguments)]) if arguments else command
+
+    curr_dir = os.getcwd()
+    try:
+        if workdir is not None:
+            os.chdir(workdir)
+        logger.info(f"shell is in {os.getcwd()}")
+        proc = subprocess.run(
+            full_command,
+            capture_output=True,
+            cwd=workdir,
+            encoding="utf8",
+            env=environ,
+            shell=True,
+        )
+    finally:
+        os.chdir(curr_dir)
+
     output = ShellOutput()
     output.stdout = proc.stdout
     output.stderr = proc.stderr
     output.return_code = proc.returncode
-    os.chdir(curr_dir)
     return output
 
 @Workflow.wrap.as_function_node("line_found")
