@@ -1,20 +1,25 @@
 """Conformance: VaspEngine satisfies pyiron_workflow_atomistics.engine.Engine.
 
-Uses a mock VASP command for the run() smoke - the command simply copies
+Wraps the upstream EngineConformanceTests mixin (pytest-style) in a
+unittest.TestCase subclass so the shared pyiron CI (which runs
+``unittest discover``) picks it up.
+
+The run() smoke uses a mock VASP command - the command simply copies
 canned vasprun.xml/OUTCAR/CONTCAR files into the test working directory,
 then `_run.run_vasp` continues into the parser path. This sidesteps the
 need for a real VASP binary in CI.
 
 If the canned fixtures haven't been generated yet (`.gitkeep` only),
-test_run_returns_engine_output skips via pytest.skip. The other four
+test_run_returns_engine_output is skipped via SkipTest. The other four
 mixin methods always run.
 """
 
 from __future__ import annotations
 
+import tempfile
+import unittest
 from pathlib import Path
 
-import pytest
 from ase.build import bulk
 from pyiron_workflow_atomistics.engine import CalcInputStatic
 from pyiron_workflow_atomistics.testing import EngineConformanceTests
@@ -38,7 +43,7 @@ def _mock_command() -> str:
     return f"bash -c 'cp {_FIXTURE_ROOT}/* . && true'"
 
 
-class TestVaspEngineConformance(EngineConformanceTests):
+class _VaspEngineConformance(EngineConformanceTests):
     @staticmethod
     def engine_factory(tmp_path):
         return VaspEngine(
@@ -52,13 +57,42 @@ class TestVaspEngineConformance(EngineConformanceTests):
         # Match the 4-atom Cu FCC the canned fixture was generated for
         return bulk("Cu", "fcc", a=3.6, cubic=True)
 
-    # Override only the run() smoke - guard with fixture presence
-    def test_run_returns_engine_output(self, tmp_path):
+
+class TestVaspEngineConformance(unittest.TestCase):
+    """Wraps the pytest-style EngineConformanceTests mixin so unittest
+    discover picks it up. Each test method delegates to a fresh
+    _VaspEngineConformance() instance with a unittest-managed tmp_path.
+    """
+
+    def setUp(self) -> None:
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.tmp_path = Path(self._tmpdir.name)
+        self._mixin = _VaspEngineConformance()
+
+    def tearDown(self) -> None:
+        self._tmpdir.cleanup()
+
+    def test_satisfies_engine_protocol(self) -> None:
+        self._mixin.test_satisfies_engine_protocol(self.tmp_path)
+
+    def test_with_working_directory_is_pure(self) -> None:
+        self._mixin.test_with_working_directory_is_pure(self.tmp_path)
+
+    def test_pickleable(self) -> None:
+        self._mixin.test_pickleable(self.tmp_path)
+
+    def test_get_calculate_fn_signature(self) -> None:
+        self._mixin.test_get_calculate_fn_signature(self.tmp_path)
+
+    def test_run_returns_engine_output(self) -> None:
         if not _fixtures_populated():
-            pytest.skip(
+            self.skipTest(
                 f"Canned fixtures not populated at {_FIXTURE_ROOT}. "
                 "Run `python tests/fixtures/generate.py` with a real "
                 "vasp_std to regenerate."
             )
-        # Otherwise defer to the base implementation
-        return super().test_run_returns_engine_output(tmp_path)
+        self._mixin.test_run_returns_engine_output(self.tmp_path)
+
+
+if __name__ == "__main__":
+    unittest.main()

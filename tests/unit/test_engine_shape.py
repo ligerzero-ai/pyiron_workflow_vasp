@@ -1,51 +1,70 @@
-"""Engine shape pre-test: VaspEngine satisfies the Protocol class-level
-contract without needing the conformance suite. Refined into the full
-EngineConformanceTests subclass in Task 7."""
+"""Engine shape tests: VaspEngine satisfies the Protocol class-level
+contract without needing the conformance suite. The conformance suite
+in test_engine_conformance.py covers the full mixin once fixtures are
+populated.
 
-from pathlib import Path
+Written as ``unittest.TestCase`` subclasses so the pyiron shared CI
+(which runs ``unittest discover``) picks them up. Pytest also runs
+them via its unittest compatibility layer.
+"""
 
-import pytest
+from __future__ import annotations
 
-
-def test_vasp_engine_imports():
-    from pyiron_workflow_vasp.engine import VaspEngine
-
-    assert VaspEngine is not None
-
-
-def test_vasp_engine_satisfies_protocol(tmp_path: Path):
-    from pyiron_workflow_atomistics.engine import CalcInputStatic, Engine
-
-    from pyiron_workflow_vasp.engine import VaspEngine
-
-    eng = VaspEngine(
-        EngineInput=CalcInputStatic(),
-        working_directory=str(tmp_path),
-    )
-    assert isinstance(
-        eng, Engine
-    ), "VaspEngine does not satisfy the runtime_checkable Engine Protocol"
+import os
+import tempfile
+import unittest
 
 
-def test_with_working_directory_is_pure(tmp_path: Path):
-    import os
+class TestVaspEngineImport(unittest.TestCase):
+    def test_vasp_engine_imports(self) -> None:
+        from pyiron_workflow_vasp.engine import VaspEngine
 
-    from pyiron_workflow_atomistics.engine import CalcInputStatic
-
-    from pyiron_workflow_vasp.engine import VaspEngine
-
-    eng = VaspEngine(EngineInput=CalcInputStatic(), working_directory=str(tmp_path))
-    sub = eng.with_working_directory("subdir")
-    assert sub.working_directory == os.path.join(str(tmp_path), "subdir")
-    assert eng.working_directory == str(tmp_path)
-    assert sub is not eng
-    assert type(sub) is type(eng)
+        self.assertIsNotNone(VaspEngine)
 
 
-def test_md_input_raises(tmp_path: Path):
-    from pyiron_workflow_atomistics.engine import CalcInputMD
+class TestVaspEngineShape(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.tmp_path = self._tmpdir.name
 
-    from pyiron_workflow_vasp.engine import VaspEngine
+    def tearDown(self) -> None:
+        self._tmpdir.cleanup()
 
-    with pytest.raises(NotImplementedError, match="MD"):
-        VaspEngine(EngineInput=CalcInputMD(), working_directory=str(tmp_path))
+    def test_vasp_engine_satisfies_protocol(self) -> None:
+        from pyiron_workflow_atomistics.engine import CalcInputStatic, Engine
+
+        from pyiron_workflow_vasp.engine import VaspEngine
+
+        eng = VaspEngine(
+            EngineInput=CalcInputStatic(),
+            working_directory=self.tmp_path,
+        )
+        self.assertIsInstance(
+            eng,
+            Engine,
+            msg="VaspEngine does not satisfy the runtime_checkable Engine Protocol",
+        )
+
+    def test_with_working_directory_is_pure(self) -> None:
+        from pyiron_workflow_atomistics.engine import CalcInputStatic
+
+        from pyiron_workflow_vasp.engine import VaspEngine
+
+        eng = VaspEngine(EngineInput=CalcInputStatic(), working_directory=self.tmp_path)
+        sub = eng.with_working_directory("subdir")
+        self.assertEqual(sub.working_directory, os.path.join(self.tmp_path, "subdir"))
+        self.assertEqual(eng.working_directory, self.tmp_path)
+        self.assertIsNot(sub, eng)
+        self.assertIs(type(sub), type(eng))
+
+    def test_md_input_raises(self) -> None:
+        from pyiron_workflow_atomistics.engine import CalcInputMD
+
+        from pyiron_workflow_vasp.engine import VaspEngine
+
+        with self.assertRaisesRegex(NotImplementedError, "MD"):
+            VaspEngine(EngineInput=CalcInputMD(), working_directory=self.tmp_path)
+
+
+if __name__ == "__main__":
+    unittest.main()
