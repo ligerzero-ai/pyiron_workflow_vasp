@@ -10,9 +10,10 @@ Plus the existing standalone helper functions in vasp and generic
 script-style API).
 """
 
+from ._version import get_versions
 from .engine import VaspEngine
 from .generic import *  # noqa: F401,F403  -- legacy helpers
 from .vasp import *  # noqa: F401,F403      -- legacy helpers
 
-__version__ = "0.1.0"
+__version__ = get_versions()["version"]
 __all__ = ["VaspEngine"]
