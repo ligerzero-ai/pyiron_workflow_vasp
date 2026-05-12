@@ -11,7 +11,7 @@ jobs:
     uses: pyiron/actions/.github/workflows/push-pull.yml@actions-4.0.8
     with:
       runner: 'ubuntu-22.04'
-      # pandas 3.0.2 wheels start at python 3.11; exclude the 3.10 and 3.9 legs
+      # pandas wheels start at python 3.11; exclude the 3.10 and 3.9 legs
       python-version-alt2: 'exclude'
       python-version-alt3: 'exclude'
       runner-alt1: 'exclude'
@@ -21,4 +21,9 @@ jobs:
       do-commit-updated-env: false
       # No docs/conf.py in this repo yet
       do-build-docs: false
+      # No tests/benchmark dir yet
+      do-benchmark-tests: false
+      # `coverage combine` needs multi-process runs; we only have a single
+      # unittest invocation. Keep coveralls off until that's plumbed.
+      do-coveralls: false
     secrets: inherit

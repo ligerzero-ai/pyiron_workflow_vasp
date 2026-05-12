@@ -25,18 +25,22 @@ classifiers = [
 ]
 
 dependencies = [
-    "numpy==1.26.4",
-    "pandas==3.0.2",
-    "matplotlib==3.10.9",
-    "ase==3.28.0",
-    "scipy==1.17.1",
-    "pyiron-workflow==0.15.6",
-    "pyiron-workflow-atomistics==0.0.5",
-    "pyiron_vasp==0.2.5",
-    "pymatgen==2026.5.4",
-    "pyiron_snippets==1.2.1",
-    "scikit-learn==1.8.0",
-    "tqdm==4.67.3",
+    # Pins match the pyiron-workflow-atomistics 0.0.5 set, loosened
+    # to ranges that accommodate what pip's transitive resolver
+    # actually delivers in CI (pymatgen-on-pypi-only pulls older
+    # pandas/scipy/ase that don't satisfy strict ==-pins).
+    "numpy>=1.26,<3",
+    "pandas>=2.2",
+    "matplotlib>=3.10",
+    "ase>=3.25",
+    "scipy>=1.15",
+    "pyiron-workflow>=0.15.6",
+    "pyiron-workflow-atomistics>=0.0.5",
+    "pyiron_vasp>=0.2.5",
+    "pymatgen>=2025.6",
+    "pyiron_snippets>=1.2",
+    "scikit-learn>=1.8",
+    "tqdm>=4.67",
 ]
 
 [project.optional-dependencies]
