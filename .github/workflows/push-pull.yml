@@ -13,4 +13,8 @@ jobs:
       runner: 'ubuntu-22.04'
       python-version-alt3: 'exclude'
       runner-alt1: 'exclude'
+      # The ligerzero-ai org does not define DEPENDABOT_WORKFLOW_TOKEN; the
+      # commit-updated-env job's checkout step fails for lack of the secret.
+      # Disable it here; flip back on after the org migration to pyiron/.
+      do-commit-updated-env: false
     secrets: inherit
