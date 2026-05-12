@@ -16,7 +16,6 @@ from pathlib import Path
 
 import pytest
 from ase.build import bulk
-
 from pyiron_workflow_atomistics.engine import CalcInputStatic
 from pyiron_workflow_atomistics.testing import EngineConformanceTests
 

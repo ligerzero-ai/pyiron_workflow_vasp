@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any, Callable, Literal
 
 from ase import Atoms
-
 from pyiron_workflow_atomistics.engine import (
     CalcInputMD,
     CalcInputMinimize,

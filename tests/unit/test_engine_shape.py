@@ -9,25 +9,29 @@ import pytest
 
 def test_vasp_engine_imports():
     from pyiron_workflow_vasp.engine import VaspEngine
+
     assert VaspEngine is not None
 
 
 def test_vasp_engine_satisfies_protocol(tmp_path: Path):
     from pyiron_workflow_atomistics.engine import CalcInputStatic, Engine
+
     from pyiron_workflow_vasp.engine import VaspEngine
 
     eng = VaspEngine(
         EngineInput=CalcInputStatic(),
         working_directory=str(tmp_path),
     )
-    assert isinstance(eng, Engine), \
-        "VaspEngine does not satisfy the runtime_checkable Engine Protocol"
+    assert isinstance(
+        eng, Engine
+    ), "VaspEngine does not satisfy the runtime_checkable Engine Protocol"
 
 
 def test_with_working_directory_is_pure(tmp_path: Path):
     import os
 
     from pyiron_workflow_atomistics.engine import CalcInputStatic
+
     from pyiron_workflow_vasp.engine import VaspEngine
 
     eng = VaspEngine(EngineInput=CalcInputStatic(), working_directory=str(tmp_path))
@@ -40,6 +44,7 @@ def test_with_working_directory_is_pure(tmp_path: Path):
 
 def test_md_input_raises(tmp_path: Path):
     from pyiron_workflow_atomistics.engine import CalcInputMD
+
     from pyiron_workflow_vasp.engine import VaspEngine
 
     with pytest.raises(NotImplementedError, match="MD"):

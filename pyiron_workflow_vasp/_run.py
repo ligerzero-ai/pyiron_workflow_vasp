@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any
 
 from ase import Atoms
-
 from pyiron_workflow_atomistics.engine import (
     CalcInputMinimize,
     CalcInputStatic,
@@ -180,8 +179,8 @@ def _to_engine_output(parsed: dict) -> EngineOutput:
                 ASEAtoms(symbols=symbols, positions=p, cell=c, pbc=True)
             )
 
-    final_structure = structures_traj[-1] if structures_traj else parsed.get(
-        "final_structure"
+    final_structure = (
+        structures_traj[-1] if structures_traj else parsed.get("final_structure")
     )
     final_energy = energies[-1] if energies else parsed.get("final_total_energy")
     converged = bool(parsed.get("converged", False))

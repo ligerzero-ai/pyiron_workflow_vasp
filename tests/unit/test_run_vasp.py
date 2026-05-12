@@ -3,13 +3,10 @@ that does nothing (no fixtures yet) - verifies the function imports
 and matches the expected signature shape. End-to-end parser coverage
 lives in test_engine_conformance.py once fixtures are populated."""
 
-from pathlib import Path
-
-import pytest
-
 
 def test_run_vasp_importable():
     from pyiron_workflow_vasp._run import run_vasp
+
     assert callable(run_vasp)
 
 

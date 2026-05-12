@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 from ase.build import bulk
-
 from pyiron_workflow_atomistics.engine import CalcInputStatic
+
 from pyiron_workflow_vasp.engine import VaspEngine
 
 _FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "cu_static"
