@@ -4,6 +4,7 @@ channels:
 dependencies:
   - python>=3.11,<3.13
   - pip
+  - hatchling
   - numpy=1.26.4
   - ase=3.28.0
   - pymatgen=2026.5.4
