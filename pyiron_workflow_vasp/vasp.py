@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import warnings
+from functools import lru_cache
 from pathlib import Path
 import shutil
 from typing import Optional
@@ -23,6 +24,11 @@ from pyiron_workflow import Workflow
 from pyiron_workflow_vasp.generic import delete_files_recursively, compress_directory, remove_dir, shell, isLineInFile
 
 from pyiron_snippets.logger import logger
+
+# Default location of the user config — overridable via env var to ease testing / CI.
+DEFAULT_CONFIG_PATH = Path(
+    os.environ.get("PYIRON_VASP_CONFIG", Path.home() / ".pyiron_vasp_config")
+)
 
 def read_potcar_config(config_file: Path) -> dict:
     """
@@ -115,20 +121,38 @@ def read_potcar_config(config_file: Path) -> dict:
         raise Exception(f"Error reading configuration file: {e}") from e
 
 
-# Look in user's home dir
-config_file = os.path.join(Path.home(), ".pyiron_vasp_config")
-potcar_config = read_potcar_config(config_file)
-default_POTCAR_library_path = potcar_config["default_POTCAR_path"]
-default_POTCAR_generation_path = os.path.join(
-    potcar_config["default_POTCAR_path"], potcar_config["default_functional"]
-)
-default_functional = potcar_config["default_functional"]
-pseudopotential_csv_suffix = potcar_config.get("pseudopotential_csv_suffix", default_functional)
-POTCAR_default_specification_data = str(
-    Path(__file__).parent.joinpath(
-        "vasp_resources", f"vasp_pseudopotential_{pseudopotential_csv_suffix}_data.csv"
+@lru_cache(maxsize=1)
+def _get_potcar_config() -> dict:
+    """Lazily read and cache the user's POTCAR config from ``DEFAULT_CONFIG_PATH``.
+
+    Reading happens on first call rather than at import, so importing the
+    package never fails on a machine that hasn't yet created the config file
+    (useful for tests, docs builds, and inspecting function signatures).
+    """
+    return read_potcar_config(DEFAULT_CONFIG_PATH)
+
+
+def _default_POTCAR_library_path() -> str:
+    return _get_potcar_config()["default_POTCAR_path"]
+
+
+def _default_functional() -> str:
+    return _get_potcar_config()["default_functional"]
+
+
+def _default_POTCAR_generation_path() -> str:
+    cfg = _get_potcar_config()
+    return os.path.join(cfg["default_POTCAR_path"], cfg["default_functional"])
+
+
+def _default_POTCAR_specification_csv() -> str:
+    cfg = _get_potcar_config()
+    suffix = cfg.get("pseudopotential_csv_suffix", cfg["default_functional"])
+    return str(
+        Path(__file__).parent.joinpath(
+            "vasp_resources", f"vasp_pseudopotential_{suffix}_data.csv"
+        )
     )
-)
 
 
 @dataclass
@@ -162,10 +186,17 @@ class VaspInput:
 
     structure: Atoms
     incar: Incar
-    pseudopot_lib_path: str = field(default=default_POTCAR_library_path)
+    pseudopot_lib_path: Optional[str] = field(default=None)
     pseudopot_functional: str = "GGA"
     potcar_paths: Optional[list[str]] = None
     kpoints: Optional[Kpoints] = None
+
+    def __post_init__(self) -> None:
+        # Resolve the POTCAR library path lazily so importing the package
+        # doesn't require a config file. Only resolve when the user hasn't
+        # supplied explicit ``potcar_paths``.
+        if self.pseudopot_lib_path is None and self.potcar_paths is None:
+            self.pseudopot_lib_path = _default_POTCAR_library_path()
     # generic_input: GenericDFTInput
 #    spin_constraints: []
 
@@ -267,22 +298,28 @@ def write_VaspInputSet(workdir: str, vasp_input: VaspInput) -> str:
 
 
 @Workflow.wrap.as_function_node("output_dict")
-def parse_VaspOutput(workdir, function = None, parser_args = {}):
+def parse_VaspOutput(workdir, function=None, parser_args=None):
     """
     Parse VASP output files in the working directory.
-    
+
     Args:
         workdir (str): Path to the working directory containing VASP output files.
-    
+        function (callable, optional): Custom parser to use. If ``None``, the
+            default ``pyiron_vasp.vasp.output.parse_vasp_output`` is used and
+            ``parser_args`` is overridden with ``{"working_directory": workdir}``.
+        parser_args (dict, optional): Keyword arguments to pass to ``function``.
+            Ignored when ``function`` is ``None``.
+
     Returns:
         dict: Dictionary containing parsed VASP output data.
     """
-    if function == None:
-        #from pyiron_workflow_vasp.vasp_parser.output import parse_vasp_directory
+    if function is None:
         from pyiron_vasp.vasp.output import parse_vasp_output as parse_vasp_directory
         parser_args = {"working_directory": workdir}
     else:
         parse_vasp_directory = function
+        if parser_args is None:
+            parser_args = {}
     return parse_vasp_directory(**parser_args)
 
 
@@ -310,25 +347,23 @@ def check_convergence(
         "reached required accuracy - stopping structural energy minimisation"
     )
 
+    # Try vasprun.xml first (authoritative), fall back to scanning the run log
+    # and finally the backup log captured by the queueing system.
     try:
         vr = Vasprun(filename=os.path.join(workdir, filename_vasprun))
         converged = vr.converged
-    except:
-        try:
-            converged = isLineInFile.node_function(
-                filepath=os.path.join(workdir, filename_vasplog),
-                line=line_converged,
-                exact_match=False,
-            )
-        except:
+    except Exception:
+        for logname in (filename_vasplog, backup_vasplog):
             try:
                 converged = isLineInFile.node_function(
-                    filepath=os.path.join(workdir, backup_vasplog),
+                    filepath=os.path.join(workdir, logname),
                     line=line_converged,
                     exact_match=False,
                 )
-            except:
-                pass
+                if converged:
+                    break
+            except Exception:
+                continue
 
     return converged
 
@@ -339,12 +374,12 @@ def vasp_job(
     workdir: str,
     vasp_input: VaspInput,
     command: str = "module load vasp; module load intel/19.1.0 impi/2019.6; unset I_MPI_HYDRA_BOOTSTRAP; unset I_MPI_PMI_LIBRARY; mpiexec -n 1 vasp_std",
-    files_to_be_deleted = ["CHG", "CHGCAR", "WAVECAR"],
-    compress = False,
-    compressed_file_in_dir = False,
-    remove_calc_dir = False,
-    vasp_parser_function = None,
-    vasp_parser_args: dict = {},
+    files_to_be_deleted: Optional[list[str]] = None,
+    compress: bool = False,
+    compressed_file_in_dir: bool = False,
+    remove_calc_dir: bool = False,
+    vasp_parser_function=None,
+    vasp_parser_args: Optional[dict] = None,
 ):
     """
     Run a VASP calculation with the specified input parameters.
@@ -369,6 +404,10 @@ def vasp_job(
     Returns:
         tuple: (vasp_output, convergence_status)
     """
+    if files_to_be_deleted is None:
+        files_to_be_deleted = ["CHG", "CHGCAR", "WAVECAR"]
+    if vasp_parser_args is None:
+        vasp_parser_args = {}
     self.working_dir = create_WorkingDirectory(workdir=workdir)
     self.vaspwriter = write_VaspInputSet(workdir=workdir, vasp_input=vasp_input)
     self.job = shell(command=command, workdir=workdir)
@@ -418,8 +457,10 @@ def get_default_POTCAR_paths(
     structure: Atoms,
     pseudopot_lib_path: str,
     pseudopot_functional: str = "GGA",
-    potcar_df: pd.DataFrame = pd.read_csv(POTCAR_default_specification_data),
+    potcar_df: Optional[pd.DataFrame] = None,
 ) -> list[str]:
+    if potcar_df is None:
+        potcar_df = pd.read_csv(_default_POTCAR_specification_csv())
     ele_list, _ = stack_element_string(structure)
     potcar_paths = []
     for element in ele_list:
