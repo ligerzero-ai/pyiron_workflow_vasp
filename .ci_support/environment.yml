@@ -2,22 +2,23 @@ channels:
   - conda-forge
 
 dependencies:
-  - python>=3.10,<3.13
+  - python>=3.11,<3.13
   - pip
   - hatchling
   - numpy=1.26.4
   - ase=3.28.0
-  - pymatgen=2026.5.4
-  - pyiron_workflow=0.15.6
-  - pandas=3.0.2
   - scipy=1.17.1
+  - pandas=3.0.2
   - matplotlib=3.10.9
   - scikit-learn=1.8.0
   - tqdm=4.67.3
   - pytest
   - nbformat
   - nbclient
+  # The following are not on conda-forge at the pinned versions; install via pip:
   - pip:
+      - pyiron-workflow==0.15.6
       - pyiron-workflow-atomistics==0.0.5
       - pyiron-snippets==1.2.1
+      - pymatgen==2026.5.4
       - pyiron_vasp==0.2.5

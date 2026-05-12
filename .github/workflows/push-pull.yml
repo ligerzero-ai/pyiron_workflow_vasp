@@ -11,10 +11,14 @@ jobs:
     uses: pyiron/actions/.github/workflows/push-pull.yml@actions-4.0.8
     with:
       runner: 'ubuntu-22.04'
+      # pandas 3.0.2 wheels start at python 3.11; exclude the 3.10 and 3.9 legs
+      python-version-alt2: 'exclude'
       python-version-alt3: 'exclude'
       runner-alt1: 'exclude'
       # The ligerzero-ai org does not define DEPENDABOT_WORKFLOW_TOKEN; the
       # commit-updated-env job's checkout step fails for lack of the secret.
       # Disable it here; flip back on after the org migration to pyiron/.
       do-commit-updated-env: false
+      # No docs/conf.py in this repo yet
+      do-build-docs: false
     secrets: inherit
