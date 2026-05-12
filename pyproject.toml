@@ -25,7 +25,8 @@ classifiers = [
 ]
 
 dependencies = [
-    # Pins match the pyiron-workflow-atomistics 0.0.5 set, loosened
+    # Pins match the pyiron-workflow-atomistics 0.0.6 set, loosened.
+    # atomistics 0.0.6 renamed engine.run -> engine.calculate; consume new name
     # to ranges that accommodate what pip's transitive resolver
     # actually delivers in CI (pymatgen-on-pypi-only pulls older
     # pandas/scipy/ase that don't satisfy strict ==-pins).
@@ -35,7 +36,7 @@ dependencies = [
     "ase>=3.25",
     "scipy>=1.15",
     "pyiron-workflow>=0.15.6",
-    "pyiron-workflow-atomistics>=0.0.5",
+    "pyiron-workflow-atomistics>=0.0.6",
     "pyiron_vasp>=0.2.5",
     "pymatgen>=2025.6",
     "pyiron_snippets>=1.2",
