@@ -1,10 +1,14 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = [
+    "setuptools>=68.0.0",
+    "versioneer[toml]==0.29",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyiron_workflow_vasp"
-version = "0.1.0"
+dynamic = ["version"]
 description = "A VASP workflow integration package for pyiron"
 readme = "README.md"
 requires-python = ">=3.10, <3.13"
@@ -68,8 +72,18 @@ Documentation = "https://github.com/pyiron/pyiron_workflow_vasp"
 Repository = "https://github.com/pyiron/pyiron_workflow_vasp.git"
 "Bug Tracker" = "https://github.com/pyiron/pyiron_workflow_vasp/issues"
 
-[tool.hatch.build.targets.wheel]
-packages = ["pyiron_workflow_vasp"]
+[tool.versioneer]
+VCS = "git"
+style = "pep440-pre"
+versionfile_source = "pyiron_workflow_vasp/_version.py"
+parentdir_prefix = "pyiron_workflow_vasp"
+tag_prefix = "pyiron_workflow_vasp-"
+
+[tool.setuptools.packages.find]
+include = ["pyiron_workflow_vasp*"]
+
+[tool.setuptools.dynamic.version]
+attr = "pyiron_workflow_vasp.__version__"
 
 [tool.ruff]
 exclude = [
