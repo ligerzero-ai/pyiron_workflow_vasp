@@ -1,45 +1,86 @@
 # pyiron_workflow_vasp
 
-A VASP workflow integration package for pyiron, providing tools and utilities for running and managing VASP calculations within the pyiron workflow framework.
+[![PyPI](https://img.shields.io/pypi/v/pyiron-workflow-vasp.svg)](https://pypi.org/project/pyiron-workflow-vasp/)
+[![Python](https://img.shields.io/pypi/pyversions/pyiron-workflow-vasp.svg)](https://pypi.org/project/pyiron-workflow-vasp/)
+[![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
+
+VASP backend for the [pyiron_workflow](https://github.com/pyiron/pyiron_workflow)
+ecosystem. Exposes a `VaspEngine` that satisfies the
+[`pyiron_workflow_atomistics`](https://github.com/pyiron/pyiron_workflow_atomistics)
+Engine Protocol, so physics workflows written against the Protocol
+(vacancy formation, surface energies, EOS, etc.) can swap VASP in for
+LAMMPS or ASE without code changes.
 
 ## Installation
 
-The package can be installed using pip:
-
 ```bash
-# Basic installation
 pip install pyiron_workflow_vasp
 
-# Installation with development tools
+# With dev tools
 pip install "pyiron_workflow_vasp[dev]"
 
-# Installation with notebook support
+# With Jupyter
 pip install "pyiron_workflow_vasp[notebook]"
-
-# Installation with all optional dependencies
-pip install "pyiron_workflow_vasp[dev,notebook]"
 ```
+
+You also need a working `vasp_std` (or equivalent) binary on `$PATH` and a
+`~/.pyiron_vasp_config` pointing at your POTCAR library — see the
+[VASP Configuration](#vasp-configuration) section below.
 
 ## Dependencies
 
-The package requires the following core dependencies:
-- Python >= 3.8
-- numpy >= 1.20.0
-- pandas >= 1.3.0
-- pymatgen >= 2023.0.0
-- pyiron_workflow >= 0.1.0
-- ase >= 3.22.0
+- Python `>=3.10, <3.13`
+- `pyiron-workflow-atomistics >= 0.0.6` (Engine Protocol)
+- `pyiron-workflow >= 0.15.6`
+- `pyiron_vasp >= 0.2.19` (POSCAR/INCAR/KPOINTS/POTCAR + vasprun parsing)
+- `ase`, `pymatgen`, `numpy`, `pandas`, `scipy`, `matplotlib`, `scikit-learn`
 
-## Project Information
+Exact pins are tracked in [`.ci_support/environment.yml`](.ci_support/environment.yml).
 
-- **License**: BSD-3-Clause
-- **Development Status**: Alpha
-- **Documentation**: [GitHub Repository](https://github.com/pyiron/pyiron_workflow_vasp)
-- **Bug Tracker**: [GitHub Issues](https://github.com/pyiron/pyiron_workflow_vasp/issues)
+## Quick start (VaspEngine — recommended)
 
-## Usage
+`VaspEngine` is the Protocol-compliant entry point. Configure it once,
+hand it to any physics node that takes an `Engine`:
 
-The package provides a set of tools for running VASP calculations within pyiron workflows. A minimal end-to-end example:
+```python
+from ase.build import bulk
+from pyiron_workflow_atomistics.engine import CalcInputMinimize, calculate
+from pyiron_workflow_vasp.engine import VaspEngine
+
+structure = bulk("Fe", cubic=True, a=2.83)
+
+engine = VaspEngine(
+    EngineInput=CalcInputMinimize(),         # or CalcInputStatic() for single-point
+    working_directory="./bulk_fe_run",
+    functional="GGA",
+    encut=400,
+    kpoints_density=0.30,
+    command="mpirun -n 4 vasp_std",
+)
+
+# Direct execution — returns an EngineOutput dataclass
+output = calculate.node_function(structure=structure, engine=engine)
+
+print("converged:    ", output.converged)
+print("final energy: ", output.final_energy, "eV")
+print("final cell:   ", output.final_structure.get_cell())
+
+# ...or compose it into a pyiron_workflow graph
+import pyiron_workflow as pwf
+wf = pwf.Workflow("fe_relax")
+wf.relax = calculate(structure=structure, engine=engine)
+wf.run()
+print(wf.relax.outputs.engine_output.value.final_energy)
+```
+
+Static and Minimize modes are supported in 0.1.0. MD raises
+`NotImplementedError` at construction — see the [release notes](https://github.com/pyiron/pyiron_workflow_vasp/releases/tag/pyiron_workflow_vasp-0.1.0)
+for the follow-up plan.
+
+## Legacy script API
+
+The original `VaspInput` / `vasp_job` helpers still ship for users with
+existing scripts:
 
 ```python
 from ase.build import bulk
@@ -48,31 +89,24 @@ from pyiron_workflow_vasp.vasp import VaspInput, vasp_job
 
 structure = bulk("Fe", cubic=True, a=2.83)
 incar = Incar.from_dict({
-    "ENCUT": 400,
-    "ISMEAR": 1,
-    "SIGMA": 0.1,
-    "ISPIN": 2,
-    "MAGMOM": "2*3.0",
+    "ENCUT": 400, "ISMEAR": 1, "SIGMA": 0.1, "ISPIN": 2, "MAGMOM": "2*3.0",
 })
 
-# VaspInput bundles structure + INCAR (+ optional KPOINTS / explicit POTCARs).
-# Without an explicit potcar_paths kwarg, POTCAR generation uses the
-# pseudopotential library configured in ~/.pyiron_vasp_config.
 vasp_input = VaspInput(structure=structure, incar=incar)
-
 job = vasp_job(workdir="./bulk_fe_run", vasp_input=vasp_input)
 job.run()
 
 print("converged:", job.outputs.convergence_status.value)
-print("E_pot:    ", job.outputs.to_value_dict()["vasp_output"]["generic"]["energy_pot"])
 ```
 
-For more examples — including an equation-of-state scan and a queued cluster
-run — see:
+New code should prefer the `VaspEngine` API — it composes with the
+Protocol-aware physics nodes in `pyiron_workflow_atomistics`.
 
-- [`examples/run_bulk_fe.py`](examples/run_bulk_fe.py) — a runnable script with no hardcoded cluster paths.
-- [`example_notebooks/QuickStart.ipynb`](example_notebooks/QuickStart.ipynb) — the original walkthrough (uses MPIE cluster paths).
-- [`.pyiron_vasp_config.example`](.pyiron_vasp_config.example) — annotated template for the config file.
+## More examples
+
+- [`examples/run_bulk_fe.py`](examples/run_bulk_fe.py) — runnable bcc-Fe single-point + EOS scan, no hardcoded cluster paths.
+- [`example_notebooks/QuickStart.ipynb`](example_notebooks/QuickStart.ipynb) — original walkthrough (uses MPIE paths).
+- [`.pyiron_vasp_config.example`](.pyiron_vasp_config.example) — annotated config template.
 
 ## VASP Configuration
 
