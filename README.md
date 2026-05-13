@@ -39,18 +39,20 @@ Exact pins are tracked in [`.ci_support/environment.yml`](.ci_support/environmen
 
 ## Quick start (VaspEngine — recommended)
 
-`VaspEngine` is the Protocol-compliant entry point. Configure it once,
-hand it to any physics node that takes an `Engine`:
+`VaspEngine` is the Protocol-compliant entry point. Import the
+`pyiron_workflow_atomistics.engine` module once, dot-access the
+shared primitives (`CalcInputStatic`, `CalcInputMinimize`, `calculate`),
+and hand the engine to any physics node that takes an `Engine`:
 
 ```python
 from ase.build import bulk
-from pyiron_workflow_atomistics.engine import CalcInputMinimize, calculate
+from pyiron_workflow_atomistics import engine as pwa_engine
 from pyiron_workflow_vasp.engine import VaspEngine
 
 structure = bulk("Fe", cubic=True, a=2.83)
 
 engine = VaspEngine(
-    EngineInput=CalcInputMinimize(),         # or CalcInputStatic() for single-point
+    EngineInput=pwa_engine.CalcInputMinimize(),   # or pwa_engine.CalcInputStatic()
     working_directory="./bulk_fe_run",
     functional="GGA",
     encut=400,
@@ -59,7 +61,7 @@ engine = VaspEngine(
 )
 
 # Direct execution — returns an EngineOutput dataclass
-output = calculate.node_function(structure=structure, engine=engine)
+output = pwa_engine.calculate.node_function(structure=structure, engine=engine)
 
 print("converged:    ", output.converged)
 print("final energy: ", output.final_energy, "eV")
@@ -68,10 +70,39 @@ print("final cell:   ", output.final_structure.get_cell())
 # ...or compose it into a pyiron_workflow graph
 import pyiron_workflow as pwf
 wf = pwf.Workflow("fe_relax")
-wf.relax = calculate(structure=structure, engine=engine)
+wf.relax = pwa_engine.calculate(structure=structure, engine=engine)
 wf.run()
 print(wf.relax.outputs.engine_output.value.final_energy)
 ```
+
+### Swapping engines
+
+That last block is engine-agnostic — `pwa_engine.calculate` is the
+single physics-side entry point for the whole ecosystem. Switching
+between backends is a one-line change to the engine constructor; the
+workflow doesn't care:
+
+```python
+# VASP (this package)
+from pyiron_workflow_vasp.engine import VaspEngine
+engine = VaspEngine(EngineInput=pwa_engine.CalcInputMinimize(), command="mpirun -n 4 vasp_std")
+
+# LAMMPS (pyiron_workflow_lammps)
+from pyiron_workflow_lammps.engine import LammpsEngine
+engine = LammpsEngine(EngineInput=pwa_engine.CalcInputMinimize(), potential=...)
+
+# ASE / EMT, MACE, GRACE, ... (built into pyiron_workflow_atomistics)
+from ase.calculators.emt import EMT
+engine = pwa_engine.ASEEngine(EngineInput=pwa_engine.CalcInputMinimize(), calculator=EMT())
+
+# Same call site for all three:
+output = pwa_engine.calculate.node_function(structure=structure, engine=engine)
+```
+
+This is the whole point of the Engine Protocol — physics workflows
+(vacancy formation, EOS, surface energies, ...) written against
+`pwa_engine.calculate` work with VASP, LAMMPS, or any ASE calculator
+without modification.
 
 Static and Minimize modes are supported in 0.1.0. MD raises
 `NotImplementedError` at construction — see the [release notes](https://github.com/pyiron/pyiron_workflow_vasp/releases/tag/pyiron_workflow_vasp-0.1.0)
