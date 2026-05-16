@@ -99,14 +99,19 @@ def run_vasp(
     return _to_engine_output(parsed=parsed)
 
 
-def _build_incar(
+ISIF_MAP: dict[str, int] = {"none": 2, "volume": 7, "shape": 5, "full": 3}
+
+
+def _build_incar_params(
     engine_input: CalcInputStatic | CalcInputMinimize,
     mode: str,
     encut: float,
-):
-    """Build a pymatgen Incar from the engine_input + mode + encut."""
-    from pymatgen.io.vasp.inputs import Incar
+) -> dict[str, Any]:
+    """INCAR parameters as a plain dict, keyed on physics-level Engine inputs.
 
+    Separated from ``_build_incar`` so tests can assert on the params dict
+    without instantiating a pymatgen ``Incar``.
+    """
     params: dict[str, Any] = {
         "ENCUT": encut,
         "PREC": "Accurate",
@@ -115,7 +120,6 @@ def _build_incar(
         "SIGMA": 0.05,
         "LREAL": "Auto",
     }
-
     if mode == "static":
         params["NSW"] = 0
         params["IBRION"] = -1
@@ -124,13 +128,23 @@ def _build_incar(
         params["NSW"] = engine_input.max_iterations
         params["IBRION"] = 2  # conjugate gradient
         params["EDIFFG"] = -abs(engine_input.force_convergence_tolerance)
-        params["ISIF"] = 3 if engine_input.relax_cell else 2
+        params["ISIF"] = ISIF_MAP[engine_input.cell_relaxation]
         if engine_input.energy_convergence_tolerance is not None:
             params["EDIFF"] = engine_input.energy_convergence_tolerance
     else:
         raise ValueError(f"Unknown mode {mode!r}")
+    return params
 
-    return Incar.from_dict(params)
+
+def _build_incar(
+    engine_input: CalcInputStatic | CalcInputMinimize,
+    mode: str,
+    encut: float,
+):
+    """Build a pymatgen Incar from the engine_input + mode + encut."""
+    from pymatgen.io.vasp.inputs import Incar
+
+    return Incar.from_dict(_build_incar_params(engine_input, mode, encut))
 
 
 def _build_kpoints(structure: Atoms, kpoints_density: float):
