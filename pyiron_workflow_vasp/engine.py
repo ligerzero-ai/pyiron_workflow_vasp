@@ -43,6 +43,10 @@ class VaspEngine:
     encut: float = 520.0
     kpoints_density: float = 0.30
     command: str = "vasp_std"
+    ediff: float | None = None
+    lreal: bool | str | None = None
+    compress_outputs: bool = False
+    remove_workdir: bool = False
     mode: Literal["static", "minimize"] = field(init=False)
 
     def __post_init__(self) -> None:
@@ -81,5 +85,9 @@ class VaspEngine:
             "kpoints_density": self.kpoints_density,
             "command": self.command,
             "mode": self.mode,
+            "ediff": self.ediff,
+            "lreal": self.lreal,
+            "compress_outputs": self.compress_outputs,
+            "remove_workdir": self.remove_workdir,
         }
         return run_vasp, kwargs

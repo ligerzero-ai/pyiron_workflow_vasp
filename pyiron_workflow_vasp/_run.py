@@ -30,6 +30,11 @@ def run_vasp(
     kpoints_density: float,
     command: str,
     mode: str,
+    *,
+    ediff: float | None = None,
+    lreal: bool | str | None = None,
+    compress_outputs: bool = False,
+    remove_workdir: bool = False,
 ) -> EngineOutput:
     """Run a VASP single-point or relaxation and return an EngineOutput.
 
@@ -62,7 +67,12 @@ def run_vasp(
     write_POSCAR(workdir=working_directory, structure=structure)
 
     # 2. INCAR - build dict from engine_input + mode, hand to pymatgen Incar
-    incar = _build_incar(engine_input=engine_input, mode=mode, encut=encut)
+    incar = _build_incar(
+        engine_input=engine_input,
+        mode=mode,
+        encut=encut,
+        overrides=_build_incar_overrides(ediff=ediff, lreal=lreal),
+    )
     write_INCAR(workdir=working_directory, incar=incar)
 
     # 3. KPOINTS - automatic density via pymatgen Kpoints
@@ -96,7 +106,13 @@ def run_vasp(
     parsed = parse_vasp_output(working_directory=working_directory)
 
     # 7. Map -> EngineOutput
-    return _to_engine_output(parsed=parsed)
+    out = _to_engine_output(parsed=parsed)
+    _apply_cleanup(
+        working_directory=working_directory,
+        compress_outputs=compress_outputs,
+        remove_workdir=remove_workdir,
+    )
+    return out
 
 
 ISIF_MAP: dict[str, int] = {"none": 2, "volume": 7, "shape": 5, "full": 3}
@@ -136,15 +152,38 @@ def _build_incar_params(
     return params
 
 
+def _build_incar_overrides(
+    *,
+    ediff: float | None,
+    lreal: bool | str | None,
+) -> dict[str, Any]:
+    """INCAR keys the user explicitly opted into via VaspEngine fields.
+
+    ``None`` means "leave the default value from ``_build_incar_params``
+    alone"; explicit values override.
+    """
+    overrides: dict[str, Any] = {}
+    if ediff is not None:
+        overrides["EDIFF"] = ediff
+    if lreal is not None:
+        overrides["LREAL"] = lreal
+    return overrides
+
+
 def _build_incar(
     engine_input: CalcInputStatic | CalcInputMinimize,
     mode: str,
     encut: float,
+    *,
+    overrides: dict[str, Any] | None = None,
 ):
-    """Build a pymatgen Incar from the engine_input + mode + encut."""
+    """Build a pymatgen Incar from the engine_input + mode + encut, then apply overrides."""
     from pymatgen.io.vasp.inputs import Incar
 
-    return Incar.from_dict(_build_incar_params(engine_input, mode, encut))
+    params = _build_incar_params(engine_input, mode, encut)
+    if overrides:
+        params.update(overrides)
+    return Incar.from_dict(params)
 
 
 def _build_kpoints(structure: Atoms, kpoints_density: float):
@@ -214,3 +253,23 @@ def _to_engine_output(parsed: dict) -> EngineOutput:
         structures=structures_traj or None,
         n_ionic_steps=len(energies) if energies else None,
     )
+
+
+def _apply_cleanup(
+    *, working_directory: str, compress_outputs: bool, remove_workdir: bool
+) -> None:
+    """Optional post-run cleanup driven by VaspEngine flags.
+
+    With ``compress_outputs=True``, archive the workdir to
+    ``<workdir>.tar.gz`` next to it. With ``remove_workdir=True``, delete
+    the original directory after compression (so the archive is preserved).
+    """
+    import shutil
+    import tarfile
+
+    if compress_outputs:
+        archive = f"{working_directory.rstrip(os.sep)}.tar.gz"
+        with tarfile.open(archive, "w:gz") as tar:
+            tar.add(working_directory, arcname=os.path.basename(working_directory))
+    if remove_workdir:
+        shutil.rmtree(working_directory, ignore_errors=False)
