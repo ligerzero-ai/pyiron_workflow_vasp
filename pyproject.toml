@@ -38,7 +38,7 @@ dependencies = [
     "ase==3.27.0",
     "scipy==1.17.0",
     "pyiron-workflow==0.15.6",
-    "pyiron-workflow-atomistics==0.0.6",
+    "pyiron-workflow-atomistics==0.0.7",
     "pyiron_vasp==0.2.19",
     "pymatgen==2026.5.4",
     "pyiron_snippets==1.2.1",
